@@ -148,6 +148,8 @@ fn interpret(grid: Grid) -> i64 {
                 continue;
             } else if ch == '"' {
                 in_str = false;
+            } else if ch == '\\' {
+                escaped = true;
             } else {
                 stack.push(ch as u64);
             }
