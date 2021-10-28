@@ -42,7 +42,7 @@ We at `pool` team:tm:® have not yet proven that `pool` is turing complete but i
 
 
 # 3. Getting Started
-create a new file called tutorial.2d or clone [tutorial.2d](https://github.com/HiddyTiddy/pool-lang/blob/main/programs/tutorial.2d)
+create a new file called tutorial.2d 
 
 every program should start with this. The instruction pointer will start at `.` and move in `>` direction. In fact, `.` alone is equivalent to this but I think `.>` is more idiomatic
 ```pool
