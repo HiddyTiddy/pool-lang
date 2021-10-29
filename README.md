@@ -27,14 +27,13 @@ We at `pool` team:tm:® have not yet proven that `pool` is turing complete but i
 |                 |
 | `;`             | pop the top value of the stack and exit with it as exit code                                                                                                                                                                  |
 | `$`             | drop the top value on the stack                                                                                                                                                                                               |
-| `!`             | pop the top value on the stack and if it is 0 push 0 else push 1                                                                                                                                                              |
-| \`       | pop two values a,b off the stack and push 1 if b>a else push 0 |
-| `&`             | swap the top two values of the stack                                                                                                                                                                                          |
-| `|`             | if moving horizontally, pop the top value on the stack. If it is unequal to zero, the pointer is mirrored and now will be going in the other direction                                                                        |
+| `!`             | pop the top value on the stack and if it is 0 push 0 else push 1  |
+| \`              | pop two values a,b off the stack and push 1 if `b>a` else push 0 |
+| `&`             | swap the top two values of the stack  |
+| `\|`             | if moving horizontally, pop the top value on the stack. If it is unequal to zero, the pointer is mirrored and now will be going in the other direction                                                                        |
 | `_`             | if moving vertically, pop the top value on the stack. If it is unequal to zero, the pointer is mirrored and now will be going in the other direction                                                                          |
 | `s`             | pop two values `address`,`value` off the stack and set the heap at `address` to `value`                                                                                                                                       |
 | `r`             | pop a single word `address` off the stack and push the value of the heap at `address` to the stack                                                                                                                            |
-| `n`             | pop a single value off the stack and push the square root of it (yeah)                                                                                                                                                        |
 | `n` or `√`      | pop a single value off the stack and push the square root of it (yeah) (n because √ didnt work in c++, v is already used, b too so n it is)                                                                                   |
 
 
