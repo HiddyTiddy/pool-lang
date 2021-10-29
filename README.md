@@ -8,7 +8,7 @@ An ergonomic, `befunge` and `<><` inspired language.
 `pool` targets advanced programmers who strive both speed of execution as well as ease of use.
 We at `pool` team:tm:® have not yet proven that `pool` is turing complete but it probably is.
 
- 
+
 # 2. The Instructions
 | instruction     | meaning                                                                                                                                                                                                                       |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -42,7 +42,16 @@ We at `pool` team:tm:® have not yet proven that `pool` is turing complete but i
 
 
 # 3. Getting Started
-create a new file called tutorial.2d 
+
+## 3.1 Installation
+Build from source: make sure [rust](https://www.rust-lang.org/tools/install) is installed, then run 
+```bash
+cargo build --release
+```
+the binary will be in `./target/release/pool-lang`
+
+## 3.2 Tutorial
+create a new file called tutorial.2d or clone [tutorial.2d](https://github.com/HiddyTiddy/pool-lang/blob/main/programs/tutorial.2d)
 
 every program should start with this. The instruction pointer will start at `.` and move in `>` direction. In fact, `.` alone is equivalent to this but I think `.>` is more idiomatic
 ```pool
