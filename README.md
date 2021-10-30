@@ -90,3 +90,5 @@ Here, first a maximum value is pushed (`ff*` = 15 * 15 = 225). On the stack, we 
   - slow down
   - edit
   - rerun
+  - heapedit
+  - scrolling
