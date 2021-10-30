@@ -1,7 +1,7 @@
 use crate::util::PVec;
 use std::convert::TryInto;
 
-
+#[derive(Debug)]
 pub struct Grid {
     pub grid: Vec<char>,
     pub width: usize,
@@ -10,8 +10,230 @@ pub struct Grid {
     pub y0: usize,
 }
 
+const HEAP_SIZE: usize = 1024;
+
+pub struct InterpretationState {
+    pub ptr: PVec,
+    pub vel: PVec,
+    pub in_str: bool,
+    pub escaped: bool,
+    pub stack: Vec<u64>,
+    pub heap: [u64; HEAP_SIZE],
+}
+
+impl InterpretationState {
+    pub fn new(x0: i64, y0: i64) -> InterpretationState {
+        InterpretationState {
+            ptr: PVec { x: x0, y: y0 },
+            vel: PVec { x: 1, y: 0 },
+            in_str: false,
+            escaped: false,
+            stack: vec![],
+            heap: [0; HEAP_SIZE],
+        }
+    }
+}
+
+// basically shitty syscalls
+pub enum TickResponse {
+    None,
+    Return(i64),
+    Print(u64)
+}
+
+pub fn tick(grid: &Grid, state: &mut InterpretationState) -> TickResponse {
+    state.ptr += state.vel;
+    if state.ptr.x >= grid.width as i64
+        || state.ptr.x < 0
+        || state.ptr.y >= grid.height as i64
+        || state.ptr.y < 0
+    {
+        panic!(
+            "attempted to go out of grid with x={} y={}",
+            state.ptr.x, state.ptr.y
+        );
+    }
+    let ch = grid[state.ptr.x + state.ptr.y * grid.width as i64];
+    //println!("{} {:?} {:?}", ch, stack, &heap[..10]);
+    // println!("{} {:?}", ch, stack);
+    if state.in_str {
+        if state.escaped {
+            match ch {
+                '\\' => state.stack.push('\\' as u64),
+                'n' => state.stack.push('\n' as u64),
+                't' => state.stack.push('\t' as u64),
+                'r' => state.stack.push('\r' as u64),
+                '"' => state.stack.push('"' as u64),
+                _ => state.stack.push(ch as u64),
+            }
+            state.escaped = false;
+            return TickResponse::None;
+        } else if ch == '"' {
+            state.in_str = false;
+        } else if ch == '\\' {
+            state.escaped = true;
+        } else {
+            state.stack.push(ch as u64);
+        }
+    } else {
+        match ch {
+            'v' => {
+                if state.vel.y == 0 {
+                    state.vel = PVec { x: 0, y: 1 }
+                }
+            }
+            '<' => {
+                if state.vel.x == 0 {
+                    state.vel = PVec { x: -1, y: 0 }
+                }
+            }
+            '^' => {
+                if state.vel.y == 0 {
+                    state.vel = PVec { x: 0, y: -1 }
+                }
+            }
+            '>' => {
+                if state.vel.x == 0 {
+                    state.vel = PVec { x: 1, y: 0 }
+                }
+            }
+            '+' => {
+                let a = state.stack.pop().expect("empty stack");
+                let b = state.stack.pop().expect("empty stack");
+                state.stack.push(b + a);
+            }
+            '-' => {
+                let a = state.stack.pop().expect("empty stack");
+                let b = state.stack.pop().expect("empty stack");
+                state.stack.push(b - a);
+            }
+            '*' => {
+                let a = state.stack.pop().expect("empty stack");
+                let b = state.stack.pop().expect("empty stack");
+                state.stack.push(b * a);
+            }
+            '/' => {
+                let a = state.stack.pop().expect("empty stack");
+                let b = state.stack.pop().expect("empty stack");
+                state.stack.push(b / a);
+            }
+            '%' => {
+                let a = state.stack.pop().expect("empty stack");
+                let b = state.stack.pop().expect("empty stack");
+                state.stack.push(b % a);
+            }
+            '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | 'a' | 'b' | 'c' | 'd'
+            | 'e' | 'f' => {
+                state
+                    .stack
+                    .push(ch.to_digit(16).expect("invalid literal") as u64);
+            }
+            ',' => {
+                let a = state.stack.pop().expect("empty stack");
+                // print!("{}", (a & 0xff) as u8 as char);
+                // print!("{}", (a >> 8 & 0xff) as u8 as char);
+                // print!("{}", (a >> 16 & 0xff) as u8 as char);
+                // print!("{}", (a >> 24 & 0xff) as u8 as char);
+                // print!("{}", (a >> 32 & 0xff) as u8 as char);
+                // print!("{}", (a >> 40 & 0xff) as u8 as char);
+                // print!("{}", (a >> 48 & 0xff) as u8 as char);
+                // print!("{}", (a >> 56 & 0xff) as u8 as char);
+                return TickResponse::Print(a);
+            }
+            '"' => {
+                state.in_str = true;
+            }
+            ';' => {
+                let exit_code = state.stack.pop().expect("empty stack");
+                return TickResponse::Return(exit_code as i64);
+            }
+            '!' => {
+                let a = state.stack.pop().expect("empty stack");
+                state.stack.push(if a == 0 { 1 } else { 0 });
+            }
+            '`' => {
+                let a = state.stack.pop().expect("empty stack");
+                let b = state.stack.pop().expect("empty stack");
+                state.stack.push(if b > a { 1 } else { 0 });
+            }
+            ':' => {
+                state.stack.push(*state.stack.last().expect("empty stack"));
+            }
+            '$' => {
+                state.stack.pop();
+            }
+            '&' => {
+                let a = state.stack.pop().expect("empty stack");
+                let b = state.stack.pop().expect("empty stack");
+                state.stack.push(a);
+                state.stack.push(b);
+            }
+            '|' => {
+                if state.vel.x != 0 {
+                    let condition = state.stack.pop().expect("empty stack");
+                    if condition != 0 {
+                        state.vel *= -1;
+                    }
+                }
+            }
+            '_' => {
+                if state.vel.y != 0 {
+                    let condition = state.stack.pop().expect("empty stack");
+                    if condition != 0 {
+                        state.vel *= -1;
+                    }
+                }
+            }
+            's' => {
+                let address = state.stack.pop().expect("empty stack");
+                let value = state.stack.pop().expect("empty stack");
+                if address < HEAP_SIZE.try_into().unwrap() {
+                    state.heap[address as usize] = value;
+                } else {
+                    panic!("out of bounds");
+                }
+            }
+            'r' => {
+                let address = state.stack.pop().expect("empty stack");
+                if address < HEAP_SIZE.try_into().unwrap() {
+                    state.stack.push(state.heap[address as usize]);
+                } else {
+                    panic!("out of bounds");
+                }
+            }
+            '√' | 'n' => {
+                let a = state.stack.pop().unwrap() as f64;
+                state.stack.push(a.sqrt() as u64);
+            }
+            'o' => {
+                let a = state.stack.pop().expect("empty stack");
+                let b = state.stack.pop().expect("empty stack");
+                state.stack.push(b);
+                state.stack.push(a);
+                state.stack.push(b);
+            }
+            _ => (),
+        }
+    }
+    TickResponse::None
+}
 
 // pub fn bc it's gonna go to the pub later
+pub fn interpret(grid: Grid) -> i64 {
+    let mut interpretation_state: InterpretationState =
+        InterpretationState::new(grid.x0 as i64, grid.y0 as i64);
+    loop {
+        match tick(&grid, &mut interpretation_state) {
+            TickResponse::None => (),
+            TickResponse::Return(code) => return code,
+            TickResponse::Print(a) => {
+                print!("{}", (a & 0xff) as u8 as char);
+            },
+        }
+    }
+}
+
+/* might have to revert to this
 pub fn interpret(grid: Grid) -> i64 {
     let mut ptr: PVec = PVec {
         x: grid.x0 as i64,
@@ -31,7 +253,7 @@ pub fn interpret(grid: Grid) -> i64 {
             panic!("attempted to go out of grid with x={} y={}", ptr.x, ptr.y);
         }
         let ch = grid[ptr.x + ptr.y * grid.width as i64];
-        //println!("{} {:?} {:?}", ch, stack, &heap[..10]);
+        //println!("{} {:?} {:?}", ch, stack, &heap[..10]);
         // println!("{} {:?}", ch, stack);
         if in_str {
             if escaped {
@@ -191,3 +413,5 @@ pub fn interpret(grid: Grid) -> i64 {
         }
     }
 }
+
+*/
