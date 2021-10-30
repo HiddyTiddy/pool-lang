@@ -7,3 +7,5 @@ edition = "2018"
 
 [dependencies]
 clap = "2.33.3"
+crossterm =  "0.22.0"
+tui = { version = "0.16.0", default-features = false, features = ["crossterm"]}
