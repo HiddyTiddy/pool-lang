@@ -58,7 +58,8 @@ fn render_grid<'a>(grid: &Grid, x: usize, y: usize) -> Vec<Spans<'a>> {
                     Style::default().bg(Color::Red),
                 ));
             } else {
-                tmp.push(grid.grid[xx + yy * grid.width]);
+                let g = grid.grid[xx + yy * grid.width];
+                tmp.push(if g == '\n' {' '} else {g});
             }
         }
         if !tmp.is_empty() {
@@ -66,7 +67,7 @@ fn render_grid<'a>(grid: &Grid, x: usize, y: usize) -> Vec<Spans<'a>> {
         }
         out.push(Spans::from(line));
     }
-
+    
     out
 }
 
