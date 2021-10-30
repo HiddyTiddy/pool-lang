@@ -4,6 +4,8 @@ use std::{io, sync::mpsc::channel, time::Duration};
 use tui::style::{Color, Style};
 use tui::text::Span;
 use tui::text::Spans;
+use tui::widgets::Row;
+use tui::widgets::Table;
 use tui::widgets::{Block, BorderType, Borders};
 
 use crossterm::event::KeyCode;
@@ -59,7 +61,7 @@ fn render_grid<'a>(grid: &Grid, x: usize, y: usize) -> Vec<Spans<'a>> {
                 ));
             } else {
                 let g = grid.grid[xx + yy * grid.width];
-                tmp.push(if g == '\n' {' '} else {g});
+                tmp.push(if g == '\n' { ' ' } else { g });
             }
         }
         if !tmp.is_empty() {
@@ -67,8 +69,91 @@ fn render_grid<'a>(grid: &Grid, x: usize, y: usize) -> Vec<Spans<'a>> {
         }
         out.push(Spans::from(line));
     }
-    
+
     out
+}
+
+fn render_stack<'a>(stack: &[u64]) -> Paragraph<'a> {
+    let mut text = vec![];
+
+    if !stack.is_empty() {
+        text.push(Spans::from(format!("[[ {:5} ]]", stack[stack.len() - 1])));
+        for i in (0..(stack.len() - 1)).rev() {
+            text.push(Spans::from(format!(" [ {:5} ] ", stack[i])));
+        }
+    }
+
+    Paragraph::new(text)
+        .block(Block::default().title("Paragraph").borders(Borders::ALL))
+        .style(Style::default().fg(Color::White).bg(Color::Black))
+        .alignment(Alignment::Center)
+        .block(
+            Block::default()
+                .title("stack")
+                .borders(Borders::ALL)
+                .style(Style::default())
+                .border_type(BorderType::Plain),
+        )
+}
+
+fn render_heap<'a>(heap: &[u64], width: u16) -> Table<'a> {
+    let mut data = vec![];
+    let mut line = vec![String::from("000000")];
+    let mut count: u16 = 0;
+    for (i, elem) in heap.iter().enumerate() {
+        line.push(format!("{:02x}", elem));
+        if (i) as u16 % (width / 5) == (width / 5) - 1 {
+            data.push(Row::new(line));
+            count += (width / 5) as u16;
+            line = vec![format!("{:06x}", count)];
+        }
+    }
+    if !line.is_empty() {
+        data.push(Row::new(line));
+    }
+    Table::new(data)
+        .widths(&[
+            Constraint::Percentage(15),
+            Constraint::Percentage(5),
+            Constraint::Percentage(5),
+            Constraint::Percentage(5),
+            Constraint::Percentage(5),
+            Constraint::Percentage(5),
+            Constraint::Percentage(5),
+            Constraint::Percentage(5),
+            Constraint::Percentage(5),
+            Constraint::Percentage(5),
+            Constraint::Percentage(5),
+            Constraint::Percentage(5),
+            Constraint::Percentage(5),
+            Constraint::Percentage(5),
+            Constraint::Percentage(5),
+            Constraint::Percentage(5),
+            Constraint::Percentage(5),
+            Constraint::Percentage(5), // lol
+        ])
+        // .block(Block::default().title("Paragraph").borders(Borders::ALL))
+        .style(Style::default().fg(Color::White).bg(Color::Black))
+        .block(
+            Block::default()
+                .title("heap")
+                .borders(Borders::ALL)
+                .style(Style::default())
+                .border_type(BorderType::Plain),
+        )
+}
+
+fn render_output<'a>(output: &str) -> Paragraph<'a> {
+    Paragraph::new(Spans::from(output.to_string()))
+        .style(Style::default().fg(Color::White).bg(Color::Black))
+        .alignment(Alignment::Left)
+        .block(
+            Block::default()
+                .title("output")
+                .borders(Borders::ALL)
+                .style(Style::default())
+                .border_type(BorderType::Plain),
+        )
 }
 
 pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>> {
@@ -107,17 +192,22 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
             let size = rect.size();
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
-                .margin(2)
+                .margin(3)
                 .constraints(
                     [
-                        Constraint::Percentage(10),
-                        Constraint::Percentage(45),
-                        Constraint::Percentage(40),
-                        Constraint::Percentage(5),
+                        Constraint::Length(4),
+                        Constraint::Min(2),
+                        Constraint::Length(5),
                     ]
                     .as_ref(),
                 )
                 .split(size);
+
+            let frame = Layout::default()
+                .direction(Direction::Vertical)
+                .margin(2)
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+                .split(chunks[1]);
 
             let text = render_grid(
                 &grid,
@@ -126,7 +216,7 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
             );
 
             let program = Paragraph::new(text)
-                .block(Block::default().title("Paragraph").borders(Borders::ALL))
+                .block(Block::default().title("program").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White).bg(Color::Black))
                 .alignment(Alignment::Left)
                 .block(
@@ -137,26 +227,45 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
                 );
             // .wrap(Wrap { trim: true });
 
-            rect.render_widget(program, chunks[1]);
+            rect.render_widget(program, frame[0]);
 
-            let text = vec![
-                Spans::from(format!("Stack: {:?}", interpretation_state.stack)),
-                Spans::from(format!("Heap: {:?}", &interpretation_state.heap[..128])),
-                Spans::from(format!("Output: {:?}", &out_stream)),
-            ];
-            let program = Paragraph::new(text)
-                .block(Block::default().title("Paragraph").borders(Borders::ALL))
-                .style(Style::default().fg(Color::White).bg(Color::Black))
-                .alignment(Alignment::Left)
-                .block(
-                    Block::default()
-                        .borders(Borders::ALL)
-                        .style(Style::default())
-                        .border_type(BorderType::Plain),
-                );
-            // .wrap(Wrap { trim: true });
+            let info_layout = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints(
+                    [
+                        Constraint::Percentage(33),
+                        Constraint::Percentage(34),
+                        Constraint::Percentage(33),
+                    ]
+                    .as_ref(),
+                )
+                .split(frame[1]);
 
-            rect.render_widget(program, chunks[2]);
+            // let text = vec![
+            //     Spans::from(format!("Stack: {:?}", interpretation_state.stack)),
+            //     Spans::from(format!("Heap: {:?}", &interpretation_state.heap[..128])),
+            //     Spans::from(format!("Output: {:?}", &out_stream)),
+            // ];
+            // let program = Paragraph::new(text)
+            //     .block(Block::default().title("Paragraph").borders(Borders::ALL))
+            //     .style(Style::default().fg(Color::White).bg(Color::Black))
+            //     .alignment(Alignment::Left)
+            //     .block(
+            //         Block::default()
+            //             .borders(Borders::ALL)
+            //             .style(Style::default())
+            //             .border_type(BorderType::Plain),
+            //     );
+            // // .wrap(Wrap { trim: true });
+
+            // rect.render_widget(program, frame[1]);
+
+            rect.render_widget(render_stack(&interpretation_state.stack), info_layout[0]);
+            rect.render_widget(
+                render_heap(&interpretation_state.heap, info_layout[1].width),
+                info_layout[1],
+            );
+            rect.render_widget(render_output(&out_stream), info_layout[2]);
 
             let footer = Paragraph::new("graphical pool interpreter")
                 .style(Style::default().fg(Color::LightMagenta))
@@ -167,7 +276,7 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
                         .style(Style::default())
                         .border_type(BorderType::Plain),
                 );
-            rect.render_widget(footer, chunks[3]);
+            rect.render_widget(footer, chunks[2]);
         })?;
 
         match rx.recv()? {
