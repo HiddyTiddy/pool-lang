@@ -83,3 +83,10 @@ Here, first a maximum value is pushed (`ff*` = 15 * 15 = 225). On the stack, we 
 # Todos
 - make the graphical mode have better layout
 - ~~optimizations~~ ew no
+- add user input stuff
+  - pause
+  - step
+  - speed up
+  - slow down
+  - edit
+  - rerun
