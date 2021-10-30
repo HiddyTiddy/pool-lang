@@ -78,3 +78,8 @@ Now with that knowledge we can do loops. A basic loop looks like this.
          ^ ,"!"   | < "\n",0;
 ```
 Here, first a maximum value is pushed (`ff*` = 15 * 15 = 225). On the stack, we also need the counter which we initialize with 0. It is then incremented by 1. Then the maximum and the counter are duplicated, swapped and compared, such that if the counter is greater than the maximum it pushes 1 to the stack, leading the pointer to be reflected by `|`.
+
+
+# Todos
+- make the graphical mode have better layout
+- ~~optimizations~~ ew no
