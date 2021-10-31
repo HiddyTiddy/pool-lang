@@ -39,7 +39,7 @@ pub enum TickResponse {
     None,
     Return(i64),
     Print(u64),
-    // Panic(String)
+    Panic(String),
 }
 
 pub fn tick(grid: &Grid, state: &mut InterpretationState) -> TickResponse {
@@ -49,10 +49,7 @@ pub fn tick(grid: &Grid, state: &mut InterpretationState) -> TickResponse {
         || state.ptr.y >= grid.height as i64
         || state.ptr.y < 0
     {
-        panic!(
-            "attempted to go out of grid with x={} y={}",
-            state.ptr.x, state.ptr.y
-        );
+        return TickResponse::Panic(format!("attempted to go out of grid with x={} y={}", state.ptr.x, state.ptr.y));
     }
     let ch = grid[state.ptr.x + state.ptr.y * grid.width as i64];
     //println!("{} {:?} {:?}", ch, stack, &heap[..10]);
@@ -191,7 +188,7 @@ pub fn tick(grid: &Grid, state: &mut InterpretationState) -> TickResponse {
                 if address < HEAP_SIZE.try_into().unwrap() {
                     state.heap[address as usize] = value;
                 } else {
-                    panic!("out of bounds");
+                    return TickResponse::Panic("out of bounds".to_string());
                 }
             }
             'r' => {
@@ -199,7 +196,7 @@ pub fn tick(grid: &Grid, state: &mut InterpretationState) -> TickResponse {
                 if address < HEAP_SIZE.try_into().unwrap() {
                     state.stack.push(state.heap[address as usize]);
                 } else {
-                    panic!("out of bounds");
+                    return TickResponse::Panic("out of bounds".to_string());
                 }
             }
             '√' | 'n' => {
@@ -230,6 +227,9 @@ pub fn interpret(grid: Grid) -> i64 {
             TickResponse::Print(a) => {
                 print!("{}", (a & 0xff) as u8 as char);
             },
+            TickResponse::Panic(msg) => {
+                panic!("{}", msg);
+            }
         }
     }
 }

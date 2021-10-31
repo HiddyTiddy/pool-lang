@@ -323,29 +323,33 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
                             TickResponse::Print(a) => {
                                 out_stream.push((a & 0xff) as u8 as char);
                             }
+                            TickResponse::Panic(msg) => {
+                                cleanup_terminal();
+                                panic!("{}", msg);
+                            }
                         }
-                    } 
-                },
+                    }
+                }
                 KeyCode::Char('?') => {
                     cleanup_terminal();
                     todo!("add help menu");
-                },
+                }
                 KeyCode::Down => {
                     cleanup_terminal();
-                    todo!("add movement v");
-                },
+                    todo!("add movement `v`");
+                }
                 KeyCode::Up => {
                     cleanup_terminal();
-                    todo!("add movement ^");
-                },
+                    todo!("add movement `^`");
+                }
                 KeyCode::Left => {
                     cleanup_terminal();
-                    todo!("add movement <");
-                },
+                    todo!("add movement `<`");
+                }
                 KeyCode::Right => {
                     cleanup_terminal();
-                    todo!("add movement >");
-                },
+                    todo!("add movement `>`");
+                }
                 _ => (),
             },
             Event::Tick => {
@@ -356,6 +360,10 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
                         TickResponse::Print(a) => {
                             // print!("{}", (a & 0xff) as u8 as char);
                             out_stream.push((a & 0xff) as u8 as char);
+                        }
+                        TickResponse::Panic(msg) => {
+                            cleanup_terminal();
+                            panic!("{}", msg);
                         }
                     }
                 }
