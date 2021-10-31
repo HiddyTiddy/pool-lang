@@ -38,7 +38,8 @@ impl InterpretationState {
 pub enum TickResponse {
     None,
     Return(i64),
-    Print(u64)
+    Print(u64),
+    // Panic(String)
 }
 
 pub fn tick(grid: &Grid, state: &mut InterpretationState) -> TickResponse {

@@ -301,6 +301,8 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
         })?;
 
         match rx.recv()? {
+            // todo insert and normal mode
+            // i like vim
             Event::Input(key) => match key.code {
                 KeyCode::Char('q') => break,
                 KeyCode::Tab => focus = (focus + 1) % 4,
@@ -323,7 +325,27 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
                             }
                         }
                     } 
-                }
+                },
+                KeyCode::Char('?') => {
+                    cleanup_terminal();
+                    todo!("add help menu");
+                },
+                KeyCode::Down => {
+                    cleanup_terminal();
+                    todo!("add movement v");
+                },
+                KeyCode::Up => {
+                    cleanup_terminal();
+                    todo!("add movement ^");
+                },
+                KeyCode::Left => {
+                    cleanup_terminal();
+                    todo!("add movement <");
+                },
+                KeyCode::Right => {
+                    cleanup_terminal();
+                    todo!("add movement >");
+                },
                 _ => (),
             },
             Event::Tick => {
