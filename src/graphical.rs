@@ -350,6 +350,10 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
                     cleanup_terminal();
                     todo!("add movement `>`");
                 }
+                KeyCode::Char('i') => {
+                    cleanup_terminal();
+                    todo!("add insert mode");
+                }
                 _ => (),
             },
             Event::Tick => {
