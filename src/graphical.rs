@@ -73,7 +73,7 @@ fn render_grid<'a>(grid: &Grid, x: usize, y: usize) -> Vec<Spans<'a>> {
     out
 }
 
-fn render_stack<'a>(stack: &[u64]) -> Paragraph<'a> {
+fn render_stack<'a>(stack: &[u64], is_focused: bool) -> Paragraph<'a> {
     let mut text = vec![];
 
     if !stack.is_empty() {
@@ -84,7 +84,6 @@ fn render_stack<'a>(stack: &[u64]) -> Paragraph<'a> {
     }
 
     Paragraph::new(text)
-        .block(Block::default().title("Paragraph").borders(Borders::ALL))
         .style(Style::default().fg(Color::White).bg(Color::Black))
         .alignment(Alignment::Center)
         .block(
@@ -92,11 +91,16 @@ fn render_stack<'a>(stack: &[u64]) -> Paragraph<'a> {
                 .title("stack")
                 .borders(Borders::ALL)
                 .style(Style::default())
-                .border_type(BorderType::Plain),
+                // .border_type(BorderType::Plain),
+                .border_type(if is_focused {
+                    BorderType::Thick
+                } else {
+                    BorderType::Plain
+                }),
         )
 }
 
-fn render_heap<'a>(heap: &[u64], width: u16) -> Table<'a> {
+fn render_heap<'a>(heap: &[u64], width: u16, is_focused: bool) -> Table<'a> {
     let mut data = vec![];
     let mut line = vec![String::from("000000")];
     let mut count: u16 = 0;
@@ -139,11 +143,15 @@ fn render_heap<'a>(heap: &[u64], width: u16) -> Table<'a> {
                 .title("heap")
                 .borders(Borders::ALL)
                 .style(Style::default())
-                .border_type(BorderType::Plain),
+                .border_type(if is_focused {
+                    BorderType::Thick
+                } else {
+                    BorderType::Plain
+                }),
         )
 }
 
-fn render_output<'a>(output: &str) -> Paragraph<'a> {
+fn render_output<'a>(output: &str, is_focused: bool) -> Paragraph<'a> {
     Paragraph::new(Spans::from(output.to_string()))
         .style(Style::default().fg(Color::White).bg(Color::Black))
         .alignment(Alignment::Left)
@@ -152,7 +160,11 @@ fn render_output<'a>(output: &str) -> Paragraph<'a> {
                 .title("output")
                 .borders(Borders::ALL)
                 .style(Style::default())
-                .border_type(BorderType::Plain),
+                .border_type(if is_focused {
+                    BorderType::Thick
+                } else {
+                    BorderType::Plain
+                }),
         )
 }
 
@@ -186,18 +198,20 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
     let mut interpretation_state = InterpretationState::new(grid.x0 as i64, grid.y0 as i64);
     let mut out_stream = String::default();
     let mut exited = false;
+    let mut focus: u8 = 0;
+    let mut paused = false;
 
     loop {
         term.draw(|rect| {
             let size = rect.size();
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
-                .margin(3)
+                .margin(2)
                 .constraints(
                     [
                         Constraint::Length(4),
                         Constraint::Min(2),
-                        Constraint::Length(5),
+                        Constraint::Length(3),
                     ]
                     .as_ref(),
                 )
@@ -205,7 +219,7 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
 
             let frame = Layout::default()
                 .direction(Direction::Vertical)
-                .margin(2)
+                .vertical_margin(1)
                 .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
                 .split(chunks[1]);
 
@@ -223,7 +237,11 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
                     Block::default()
                         .borders(Borders::ALL)
                         .style(Style::default())
-                        .border_type(BorderType::Plain),
+                        .border_type(if focus == 0 {
+                            BorderType::Thick
+                        } else {
+                            BorderType::Plain
+                        }),
                 );
             // .wrap(Wrap { trim: true });
 
@@ -260,12 +278,15 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
 
             // rect.render_widget(program, frame[1]);
 
-            rect.render_widget(render_stack(&interpretation_state.stack), info_layout[0]);
             rect.render_widget(
-                render_heap(&interpretation_state.heap, info_layout[1].width),
+                render_stack(&interpretation_state.stack, focus == 1),
+                info_layout[0],
+            );
+            rect.render_widget(
+                render_heap(&interpretation_state.heap, info_layout[1].width, focus == 2),
                 info_layout[1],
             );
-            rect.render_widget(render_output(&out_stream), info_layout[2]);
+            rect.render_widget(render_output(&out_stream, focus == 3), info_layout[2]);
 
             let footer = Paragraph::new("graphical pool interpreter")
                 .style(Style::default().fg(Color::LightMagenta))
@@ -280,13 +301,33 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
         })?;
 
         match rx.recv()? {
-            Event::Input(key) => {
-                if let KeyCode::Char('q') = key.code {
-                    break;
+            Event::Input(key) => match key.code {
+                KeyCode::Char('q') => break,
+                KeyCode::Tab => focus = (focus + 1) % 4,
+                KeyCode::Char('r') => {
+                    if exited {
+                        exited = !exited;
+                        interpretation_state =
+                            InterpretationState::new(grid.x0 as i64, grid.y0 as i64);
+                        out_stream.clear();
+                    }
                 }
-            }
+                KeyCode::Char(' ') => paused = !paused,
+                KeyCode::Char('.') => {
+                    if !exited && paused {
+                        match tick(&grid, &mut interpretation_state) {
+                            TickResponse::None => (),
+                            TickResponse::Return(_) => exited = true,
+                            TickResponse::Print(a) => {
+                                out_stream.push((a & 0xff) as u8 as char);
+                            }
+                        }
+                    } 
+                }
+                _ => (),
+            },
             Event::Tick => {
-                if !exited {
+                if !exited && !paused {
                     match tick(&grid, &mut interpretation_state) {
                         TickResponse::None => (),
                         TickResponse::Return(_) => exited = true,
