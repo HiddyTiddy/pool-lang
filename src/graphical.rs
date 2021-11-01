@@ -366,16 +366,30 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
                             cleanup_terminal();
                             todo!("add help menu");
                         }
-                        KeyCode::Down | KeyCode::Char('j') if edit_cursor.y +1< grid.height.try_into().unwrap() => {
-                            edit_cursor += PVec { x: 0, y: 1 };
+                        KeyCode::Down | KeyCode::Char('j') => {
+                            if focus == 0 && edit_cursor.y + 1 < grid.height.try_into().unwrap() {
+                                {
+                                    edit_cursor += PVec { x: 0, y: 1 };
+                                }
+                            }
                         }
-                        KeyCode::Up | KeyCode::Char('k') if edit_cursor.y > 0 => {
-                            edit_cursor += PVec { x: 0, y: -1 };
+                        KeyCode::Up | KeyCode::Char('k') => {
+                            if focus == 0 && edit_cursor.y > 0 {
+                                {
+                                    edit_cursor += PVec { x: 0, y: -1 };
+                                }
+                            }
                         }
-                        KeyCode::Left | KeyCode::Char('h') if edit_cursor.x > 0 => {
-                            edit_cursor += PVec { x: -1, y: 0 };
+                        KeyCode::Left | KeyCode::Char('h') => {
+                            if focus == 0 && edit_cursor.x > 0 {
+                                {
+                                    edit_cursor += PVec { x: -1, y: 0 };
+                                }
+                            }
                         }
-                        KeyCode::Right | KeyCode::Char('l') if edit_cursor.x +1< grid.width.try_into().unwrap() => {
+                        KeyCode::Right | KeyCode::Char('l')
+                            if focus == 0 && edit_cursor.x + 1 < grid.width.try_into().unwrap() =>
+                        {
                             edit_cursor += PVec { x: 1, y: 0 };
                         }
                         KeyCode::Char('i') => {
