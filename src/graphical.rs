@@ -1,4 +1,6 @@
 use crate::pool::{tick, TickResponse};
+use crate::util::PVec;
+use std::convert::TryInto;
 use std::time::Instant;
 use std::{io, sync::mpsc::channel, time::Duration};
 use tui::style::{Color, Style};
@@ -46,13 +48,29 @@ enum Event<I> {
     Tick,
 }
 
-fn render_grid<'a>(grid: &Grid, x: usize, y: usize) -> Vec<Spans<'a>> {
+fn render_grid<'a>(
+    grid: &Grid,
+    x: usize,
+    y: usize,
+    edit_cursor: PVec,
+    show_cursor: bool,
+) -> Vec<Spans<'a>> {
     let mut out = vec![];
     for yy in 0..grid.height {
         let mut line = vec![];
         let mut tmp = String::default();
         for xx in 0..grid.width {
-            if x == xx && y == yy {
+            if show_cursor && edit_cursor.x as usize == xx && edit_cursor.y as usize == yy {
+                line.push(Span::raw(tmp));
+                tmp = String::default();
+                line.push(Span::styled(
+                    format!(
+                        "{}",
+                        grid[edit_cursor.x + edit_cursor.y * grid.width as i64]
+                    ),
+                    Style::default().bg(Color::LightCyan),
+                ));
+            } else if x == xx && y == yy {
                 line.push(Span::raw(tmp));
                 tmp = String::default();
                 line.push(Span::styled(
@@ -201,6 +219,13 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
     let mut focus: u8 = 0;
     let mut paused = false;
 
+    // editor
+    let mut insert_mode = false;
+    let mut edit_cursor = PVec {
+        x: grid.x0 as i64,
+        y: grid.y0 as i64,
+    };
+
     loop {
         term.draw(|rect| {
             let size = rect.size();
@@ -209,7 +234,7 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
                 .margin(2)
                 .constraints(
                     [
-                        Constraint::Length(4),
+                        Constraint::Length(1),
                         Constraint::Min(2),
                         Constraint::Length(3),
                     ]
@@ -227,6 +252,8 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
                 &grid,
                 interpretation_state.ptr.x as usize,
                 interpretation_state.ptr.y as usize,
+                edit_cursor,
+                paused,
             );
 
             let program = Paragraph::new(text)
@@ -303,59 +330,63 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
         match rx.recv()? {
             // todo insert and normal mode
             // i like vim
-            Event::Input(key) => match key.code {
-                KeyCode::Char('q') => break,
-                KeyCode::Tab => focus = (focus + 1) % 4,
-                KeyCode::Char('r') => {
-                    if exited {
-                        exited = !exited;
-                        interpretation_state =
-                            InterpretationState::new(grid.x0 as i64, grid.y0 as i64);
-                        out_stream.clear();
-                    }
-                }
-                KeyCode::Char(' ') => paused = !paused,
-                KeyCode::Char('.') => {
-                    if !exited && paused {
-                        match tick(&grid, &mut interpretation_state) {
-                            TickResponse::None => (),
-                            TickResponse::Return(_) => exited = true,
-                            TickResponse::Print(a) => {
-                                out_stream.push((a & 0xff) as u8 as char);
-                            }
-                            TickResponse::Panic(msg) => {
-                                cleanup_terminal();
-                                panic!("{}", msg);
+            Event::Input(key) => {
+                if insert_mode {
+                    cleanup_terminal();
+                    todo!();
+                } else {
+                    match key.code {
+                        KeyCode::Char('q') => break,
+                        KeyCode::Tab => focus = (focus + 1) % 4,
+                        KeyCode::Char('r') => {
+                            if exited {
+                                exited = !exited;
+                                interpretation_state =
+                                    InterpretationState::new(grid.x0 as i64, grid.y0 as i64);
+                                out_stream.clear();
                             }
                         }
+                        KeyCode::Char(' ') => paused = !paused,
+                        KeyCode::Char('.') => {
+                            if !exited && paused {
+                                match tick(&grid, &mut interpretation_state) {
+                                    TickResponse::None => (),
+                                    TickResponse::Return(_) => exited = true,
+                                    TickResponse::Print(a) => {
+                                        out_stream.push((a & 0xff) as u8 as char);
+                                    }
+                                    TickResponse::Panic(msg) => {
+                                        cleanup_terminal();
+                                        panic!("{}", msg);
+                                    }
+                                }
+                            }
+                        }
+                        KeyCode::Char('?') => {
+                            cleanup_terminal();
+                            todo!("add help menu");
+                        }
+                        KeyCode::Down | KeyCode::Char('j') if edit_cursor.y +1< grid.height.try_into().unwrap() => {
+                            edit_cursor += PVec { x: 0, y: 1 };
+                        }
+                        KeyCode::Up | KeyCode::Char('k') if edit_cursor.y > 0 => {
+                            edit_cursor += PVec { x: 0, y: -1 };
+                        }
+                        KeyCode::Left | KeyCode::Char('h') if edit_cursor.x > 0 => {
+                            edit_cursor += PVec { x: -1, y: 0 };
+                        }
+                        KeyCode::Right | KeyCode::Char('l') if edit_cursor.x +1< grid.width.try_into().unwrap() => {
+                            edit_cursor += PVec { x: 1, y: 0 };
+                        }
+                        KeyCode::Char('i') => {
+                            if focus == 0 && paused {
+                                insert_mode = true;
+                            }
+                        }
+                        _ => (),
                     }
                 }
-                KeyCode::Char('?') => {
-                    cleanup_terminal();
-                    todo!("add help menu");
-                }
-                KeyCode::Down => {
-                    cleanup_terminal();
-                    todo!("add movement `v`");
-                }
-                KeyCode::Up => {
-                    cleanup_terminal();
-                    todo!("add movement `^`");
-                }
-                KeyCode::Left => {
-                    cleanup_terminal();
-                    todo!("add movement `<`");
-                }
-                KeyCode::Right => {
-                    cleanup_terminal();
-                    todo!("add movement `>`");
-                }
-                KeyCode::Char('i') => {
-                    cleanup_terminal();
-                    todo!("add insert mode");
-                }
-                _ => (),
-            },
+            }
             Event::Tick => {
                 if !exited && !paused {
                     match tick(&grid, &mut interpretation_state) {
