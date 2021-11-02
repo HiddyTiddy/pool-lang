@@ -26,6 +26,12 @@ impl AddAssign for PVec {
     }
 }
 
+impl PartialEq for PVec {
+    fn eq(&self, other: &Self) -> bool {
+        self.x == other.x && self.y == other.y
+    }
+}
+
 impl MulAssign<i64> for PVec {
     fn mul_assign(&mut self, rhs: i64) {
         self.x *= rhs;

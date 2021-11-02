@@ -397,6 +397,21 @@ pub fn graphical_interpret(grid: Grid) -> Result<i64, Box<dyn std::error::Error>
                                 insert_mode = true;
                             }
                         }
+                        KeyCode::Enter if paused =>  {
+                            while !exited && !(interpretation_state.ptr == edit_cursor) {
+                                match tick(&grid, &mut interpretation_state) {
+                                    TickResponse::None => (),
+                                    TickResponse::Return(_) => exited = true,
+                                    TickResponse::Print(a) => {
+                                        out_stream.push((a & 0xff) as u8 as char);
+                                    }
+                                    TickResponse::Panic(msg) => {
+                                        cleanup_terminal();
+                                        panic!("{}", msg);
+                                    }
+                                }
+                            }    
+                        }
                         _ => (),
                     }
                 }
